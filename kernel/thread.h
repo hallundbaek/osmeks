@@ -74,15 +74,20 @@ typedef struct {
        if process table is implemented. */
     process_id_t process_id;
     /* pointer to the next thread in list (<0 = end of list) */
-    TID_t next; 
+    TID_t next;
 
-    /* pad to 64 bytes */
-    uint32_t dummy_alignment_fill[9]; 
+    uint32_t deadline;
+
+    /* pad to 64 bytes, one less than handout since deadline added */
+    uint32_t dummy_alignment_fill[8]; 
 } thread_table_t;
 
 /* function prototypes */
 void thread_table_init(void);
 TID_t thread_create(void (*func)(uint32_t), uint32_t arg);
+
+/* Added this to enable deadlines */
+TID_t thread_create_deadline(void (*func)(uint32_t), uint32_t arg, uint32_t deadline);
 void thread_run(TID_t t);
 
 TID_t thread_get_current_thread(void);

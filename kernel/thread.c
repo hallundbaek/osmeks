@@ -171,6 +171,8 @@ TID_t thread_create(void (*func)(uint32_t), uint32_t arg)
     thread_table[tid].sleeps_on    = 0;
     thread_table[tid].process_id   = -1;
     thread_table[tid].next         = -1;
+    // Setting deadline to -1 in the case that no deadline is provided.
+    thread_table[tid].deadline     = -1;
 
     /* Make sure that we always have a valid back reference on context chain */
     thread_table[tid].context->prev_context = thread_table[tid].context;
@@ -203,7 +205,22 @@ TID_t thread_create(void (*func)(uint32_t), uint32_t arg)
     return tid;
 }
 
+/** Create thread with deadline, wrapper for above implementation. */
 
+TID_t thread_create_deadline(void (*func)(uint32_t), uint32_t arg, uint32_t deadline){
+  TID_t new_thread;
+
+  new_thread = thread_create(func, arg);
+  // Disabling interrupts and acquiring spinlock.
+  interrupt_status_t intr_status;
+  intr_status = _interrupt_disable();
+  spinlock_acquire(&thread_table_slock);
+  thread_table[new_thread].deadline = deadline;
+	spinlock_release(&thread_table_slock);
+	_interrupt_set_state(intr_status);
+
+  return new_thread;
+}
 /** Run a thread. The given thread is added to the scheduler's
  * ready-to-run list. This is really just a wrapper for
  * scheduler_add_ready().
