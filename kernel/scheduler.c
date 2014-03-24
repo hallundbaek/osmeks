@@ -102,6 +102,54 @@ void scheduler_add_to_ready_list(TID_t t)
 }
 
 /**
+ * Removes the thread from the ready to run list with the lowest deadline
+ * and returns it. if the list was empty, returns the idle thread (TID 0).
+ * It is assumed that interrupts are disabled and thread table spinlock
+ * is held when this function is called.
+ *
+ * @return The removed thread.
+ *
+ */
+
+static TID_t scheduler_remove_by_deadline(void)
+{
+  TID_t t;
+  TID_t urgent_t;
+  TID_t prev;
+  TID_t new_prev;
+  prev = -1;
+  new_prev = -1;
+  t = scheduler_ready_to_run.head;
+  urgent_t = t;
+  // Idle thread should never be on the ready list.
+  KERNEL_ASSERT(t != IDLE_THREAD_TID);
+
+  while (t >= 0) {
+    KERNEL_ASSERT(thread_table[t].state == THREAD_READY);
+    if (thread_table[urgent_t].deadline >= 0 && thread_table[t].deadline >= 0 &&
+        thread_table[urgent_t].deadline > thread_table[t].deadline){
+      urgent_t = t;
+      new_prev = prev;
+    }
+    prev = t;
+    t = thread_table[t].next;
+  }
+
+  if (urgent_t < 0) return IDLE_THREAD_TID;
+
+  if (urgent_t == scheduler_ready_to_run.head) {
+    scheduler_ready_to_run.head = thread_table[scheduler_ready_to_run.head].next;
+  }
+  if  (urgent_t == scheduler_ready_to_run.tail) {
+    scheduler_ready_to_run.tail = new_prev;
+    if (new_prev >= 0) thread_table[new_prev].next = -1;
+  } else {
+    thread_table[new_prev].next = thread_table[urgent_t].next;
+  }
+  return urgent_t;
+}
+
+/**
  * Removes the first thread from the ready to run list and returns it.
  * if the list was empty, returns the idle thread (TID 0). It is assumed
  * that interrupts are disabled and thread table spinlock is held when
@@ -109,7 +157,7 @@ void scheduler_add_to_ready_list(TID_t t)
  *
  * @return The removed thread.
  *
- */
+ *
 
 static TID_t scheduler_remove_first_ready(void)
 {
@@ -117,11 +165,11 @@ static TID_t scheduler_remove_first_ready(void)
 
     t = scheduler_ready_to_run.head;
 
-    /* Idle thread should never be on the ready list. */
+    // Idle thread should never be on the ready list.
     KERNEL_ASSERT(t != IDLE_THREAD_TID);
 
     if(t >= 0) {
-        /* Threads in ready queue should be in state Ready */
+        // Threads in ready queue should be in state Ready
         KERNEL_ASSERT(thread_table[t].state == THREAD_READY);
 	if(scheduler_ready_to_run.tail == t) {
 	    scheduler_ready_to_run.tail = -1;
@@ -136,7 +184,7 @@ static TID_t scheduler_remove_first_ready(void)
     } else {
 	return t;
     }
-}
+}*/
 
 /**
  * Adds given thread to scheduler's ready to run list. This function
@@ -205,7 +253,7 @@ void scheduler_schedule(void)
 	current_thread->state = THREAD_READY;
     }
 
-    t = scheduler_remove_first_ready();
+    t = scheduler_remove_by_deadline();
     thread_table[t].state = THREAD_RUNNING;
 
     spinlock_release(&thread_table_slock);

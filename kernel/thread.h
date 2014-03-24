@@ -76,7 +76,7 @@ typedef struct {
     /* pointer to the next thread in list (<0 = end of list) */
     TID_t next;
 
-    uint32_t deadline;
+    int deadline;
 
     /* pad to 64 bytes, one less than handout since deadline added */
     uint32_t dummy_alignment_fill[8]; 
