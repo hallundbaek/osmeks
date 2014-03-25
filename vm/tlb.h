@@ -38,7 +38,6 @@
 #define BUENOS_VM_TLB_H
 
 #include "lib/libc.h"
-
 /* TLB-entry. These fields match CP0 registers, which means
    they should not be modified. Any extensions should be made into
    a separate structure. */
@@ -89,6 +88,8 @@ typedef struct {
     uint32_t badvpn2;  /* VPN2 of the above */
     uint32_t asid; /* ASID of the causing process, only 8 lowest bits used */
 } tlb_exception_state_t;
+struct pagetable_struct_t;
+void tlb_fill(struct pagetable_struct_t *pagetable);
 
 /* exception handlers */
 void tlb_modified_exception(void);

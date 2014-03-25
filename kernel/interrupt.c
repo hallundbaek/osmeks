@@ -183,25 +183,30 @@ void interrupt_handle(uint32_t cause) {
      * Also call scheduler if we're running the idle thread.
      */
     if((cause & (INTERRUPT_CAUSE_SOFTWARE_0 |
-		 INTERRUPT_CAUSE_HARDWARE_5)) ||
-       scheduler_current_thread[this_cpu] == IDLE_THREAD_TID) {
-	scheduler_schedule();
+		    INTERRUPT_CAUSE_HARDWARE_5)) ||
+        scheduler_current_thread[this_cpu] == IDLE_THREAD_TID) {
+      scheduler_schedule();
+      tlb_fill(thread_get_current_thread_entry()->pagetable);
+    }
+
+/*
         thread_table_t *thread = thread_get_current_thread_entry();
         process_id_t pid = thread->process_id;
         if(pid == -1) {
-            /* Not a process thread. Use thread id with most significant
-               bit flipped as ASID.
+            * Not a process thread. Use thread id with most significant
+              bit flipped as ASID.
                Note: this limits both PROCESS_MAX_PROCESSES and the
                number of kernel work threads to 128 since ASID is one
                byte and the ASID address space is divided into two.
-               */
+               *
             uint8_t asid = thread_get_current_thread() | 0x8;
             _tlb_set_asid(asid);
-            return;
+          return;
         } else {
-            /* Use PID as ASID. This ensures that threads within a
-               process shares the same ASID */
+            * Use PID as ASID. This ensures that threads within a
+               process shares the same ASID
             _tlb_set_asid(pid);
+            /
         }
-    }
+    }*/
 }

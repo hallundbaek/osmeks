@@ -90,7 +90,6 @@ void kernel_exception_handle(int exception)
         tlb_store_exception();
         break;
     case EXCEPTION_ADDRL:
-        break;
 	print_tlb_debug();
 	KERNEL_PANIC("Address Error Load: not handled yet");
 	break;

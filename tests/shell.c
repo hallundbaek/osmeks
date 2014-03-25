@@ -245,7 +245,7 @@ int cmd_show(int argc, char** argv) {
 
 int cmd_run(char* prog) {
   if (does_file_exist(prog)) {
-    return syscall_join(syscall_exec(prog));
+    return syscall_join(syscall_exec(prog, -1));
   } else {
     printf("No such program: %s.\n", prog);
     return 1;
@@ -259,7 +259,7 @@ int background_run(char* prog) {
     return 1;
   } else {
     if (does_file_exist(prog)) {
-      background_proc = syscall_exec(prog);
+      background_proc = syscall_exec(prog, -1);
       printf("Background process spawned with PID %d\n", background_proc);
       return 0;
     } else {

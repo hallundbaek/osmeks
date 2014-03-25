@@ -42,6 +42,14 @@
 #include "vm/vm.h"
 #include "proc/process.h"
 
+void tlb_fill(pagetable_t *pagetable){
+
+  if (pagetable == NULL) return;
+  KERNEL_ASSERT(pagetable->valid_count <= (_tlb_get_maxindex()+1));
+  _tlb_write(pagetable->entries,0,pagetable->valid_count);
+  _tlb_set_asid(pagetable->ASID);
+}
+
 void tlb_modified_exception(void) {
     /* A correct handling of this exception would be to send a terminate
        signal to the process that caused it. For now, just panic. */

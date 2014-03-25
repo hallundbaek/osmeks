@@ -56,9 +56,9 @@ void syscall_halt(void)
  * it. Returns the process ID of the created process. Negative values
  * are errors.
  */
-pid_t syscall_exec(const char *filename)
+pid_t syscall_exec(const char *filename, int deadline)
 {
-  return (int)_syscall(SYSCALL_EXEC, (uint32_t)filename, 0, 0);
+  return (int)_syscall(SYSCALL_EXEC, (uint32_t)filename, deadline, 0);
 }
 
 /* Load the file indicated by 'filename' as a new process and execute

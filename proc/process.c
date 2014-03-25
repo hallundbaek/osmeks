@@ -243,6 +243,21 @@ process_id_t process_spawn(const char *executable)
     return pid;
 }
 
+process_id_t process_spawn_deadline(const char *executable, int deadline){
+    TID_t thread;
+    process_id_t pid = alloc_process_id();
+
+    if (pid == PROCESS_MAX_PROCESSES)
+        return PROCESS_PTABLE_FULL;
+
+    /* Remember to copy the executable name for use in process_start */
+    stringcopy(process_table[pid].executable, executable, PROCESS_MAX_FILELENGTH);
+    process_table[pid].parent = process_get_current_process();
+    // Changed this line from process_spawn making it run thread_create_deadline instead.
+    thread = thread_create_deadline((void (*)(uint32_t))(&process_start), pid, deadline);
+    thread_run(thread);
+    return pid;
+}
 process_id_t process_get_current_process(void)
 {
     return thread_get_current_thread_entry()->process_id;

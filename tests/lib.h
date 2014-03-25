@@ -77,7 +77,7 @@ uint32_t _syscall(uint32_t syscall_num, uint32_t a1, uint32_t a2, uint32_t a3);
 
 void syscall_halt(void);
 
-pid_t syscall_exec(const char *filename);
+pid_t syscall_exec(const char *filename, int deadline);
 pid_t syscall_execp(const char *filename, int argc, const char **argv);
 int syscall_join(pid_t pid);
 void syscall_exit(int retval);

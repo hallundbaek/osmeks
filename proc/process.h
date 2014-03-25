@@ -72,6 +72,10 @@ void process_init();
 /* Run process in a new thread. Returns the PID of the new process. */
 process_id_t process_spawn(const char *executable);
 
+/* Same as above, just with a deadline */
+process_id_t process_spawn_deadline(const char *executable, int deadline);
+
+
 process_id_t process_get_current_process(void);
 process_table_t *process_get_current_process_entry(void);
 
