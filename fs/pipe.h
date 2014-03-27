@@ -9,6 +9,27 @@
 
 #include "fs/vfs.h"
 #include "lib/libc.h"
+#include "kernel/config.h"
+
+typedef enum {
+  PIPE_FREE,
+  PIPE_LISTENING,
+  PIPE_STREAMING,
+  PIPE_OCCUPIED,
+  PIPE_INUSE
+} pipe_state_t;
+
+typedef struct {
+  char name[CONFIG_PIPE_MAX_NAME];
+  pipe_state_t state;
+  int size;
+  int offset;
+  char buffer[CONFIG_PIPE_BUFFER_SIZE];
+  int write_asid;
+  semaphore_t *read_sem;
+  semaphore_t *write_sem;
+  int write_return;
+} pipe_t;
 
 fs_t *pipe_init(void);
 

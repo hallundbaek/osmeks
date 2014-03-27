@@ -123,12 +123,14 @@ static TID_t scheduler_remove_by_deadline(void)
   urgent_t = t;
   // Idle thread should never be on the ready list.
   KERNEL_ASSERT(t != IDLE_THREAD_TID);
-
+  // Loop through the threads in ready queue, and find most urgent
   while (t >= 0) {
     KERNEL_ASSERT(thread_table[t].state == THREAD_READY);
-    if (thread_table[urgent_t].deadline >= 0 && thread_table[t].deadline >= 0 &&
+    if (thread_table[t].deadline >= 0 &&
         thread_table[urgent_t].deadline > thread_table[t].deadline){
       urgent_t = t;
+      // We need the previous one in the list so we can link it together
+      // if we take something that is not at either the head or tail.
       new_prev = prev;
     }
     prev = t;
@@ -184,8 +186,8 @@ static TID_t scheduler_remove_first_ready(void)
     } else {
 	return t;
     }
-}*/
-
+}
+*/
 /**
  * Adds given thread to scheduler's ready to run list. This function
  * handles syncronization and can be called from anywhere where

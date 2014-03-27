@@ -42,6 +42,7 @@
 #include "drivers/device.h"
 #include "fs/tfs.h"
 #include "fs/filesystems.h"
+#include "fs/pipe.h"
 
 /** @name Virtual Filesystem
  *
@@ -141,7 +142,7 @@ void vfs_init(void)
     vfs_unmount_sem = semaphore_create(0);
 
     vfs_ops = 0;
-    vfs_usable = 1;
+    vfs_usable = 1; 
 
     kprintf("VFS: Max filesystems: %d, Max open files: %d\n", 
             CONFIG_MAX_FILESYSTEMS, CONFIG_MAX_OPEN_FILES);
@@ -247,15 +248,16 @@ int vfs_mount_fs(gbd_t *disk, char *volumename)
  *
  */
 
-void vfs_mount_all(void)
-{
+void vfs_mount_all(void){
     int i;
     device_t *dev;
 
     for(i=0; i<CONFIG_MAX_FILESYSTEMS; i++) {
         dev = device_get(YAMS_TYPECODE_DISK, i);
         if(dev == NULL) {
-            /* No more disks. */
+            if (vfs_mount(pipe_init(), "pipe") != VFS_OK) {
+                KERNEL_PANIC("VFS pipe could not be mounted");
+            }
             return;
         } else {
             gbd_t *gbd;

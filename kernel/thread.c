@@ -216,8 +216,8 @@ TID_t thread_create_deadline(void (*func)(uint32_t), uint32_t arg, uint32_t dead
   intr_status = _interrupt_disable();
   spinlock_acquire(&thread_table_slock);
   thread_table[new_thread].deadline = deadline;
-	spinlock_release(&thread_table_slock);
-	_interrupt_set_state(intr_status);
+  spinlock_release(&thread_table_slock);
+  _interrupt_set_state(intr_status);
 
   return new_thread;
 }
