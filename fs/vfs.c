@@ -272,7 +272,6 @@ void vfs_mount_all(void){
             vfs_mount_fs(gbd, NULL);
         }
     }
-
 }
 
 /**

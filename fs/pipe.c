@@ -33,7 +33,6 @@ typedef struct {
  * this function. */
 fs_t *pipe_init(void)
 {
-  kprintf("pipe_init\n");
   uint32_t addr;
   fs_t *fs;
   pipefs_t *pipefs;
@@ -123,6 +122,7 @@ int pipe_create(fs_t *fs, char *filename, int size)
   semaphore_t *write_sem;
   pipefs_t *pfs;
   pfs = (pipefs_t*) fs->internal;
+  size = size;
   int pid, i;
   semaphore_P(pfs->lock);
   pid = -1;
@@ -144,7 +144,6 @@ int pipe_create(fs_t *fs, char *filename, int size)
   read_sem = semaphore_create(0);
   write_sem = semaphore_create(0);
   stringcopy(pfs->pipes[pid].name,filename,CONFIG_PIPE_MAX_NAME);
-  pfs->pipes[pid].size = size;
   pfs->pipes[pid].state = PIPE_OCCUPIED;
   pfs->pipes[pid].offset = 0;
   pfs->pipes[pid].write_sem = write_sem;
@@ -368,7 +367,7 @@ int pipe_file(fs_t *fs, char *dirname, int idx, char *buffer)
   // Directories not used in pipe implementation.
   dirname = dirname;
 
-  if (idx >= CONFIG_MAX_PIPES){
+  if (idx >= CONFIG_MAX_PIPES || idx < 0){
     return VFS_ERROR;
   }
 

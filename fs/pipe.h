@@ -12,12 +12,12 @@
 #include "kernel/config.h"
 
 typedef enum {
-  PIPE_FREE,
-  PIPE_LISTENING,
-  PIPE_STREAMING,
-  PIPE_OCCUPIED,
-  PIPE_INUSE,
-  PIPE_WRITE_OPEN
+  PIPE_FREE, //The pipe has not been created.
+  PIPE_LISTENING, //The pipe is opened for writing.
+  PIPE_STREAMING, //The pipe is writing and will be set to PIPE_INUSE.
+  PIPE_OCCUPIED, //The pipe is not being read from or written to.
+  PIPE_INUSE, //The pipe is transmitting data.
+  PIPE_WRITE_OPEN //The pipe has consumed one writing process, and is ready for another.
 } pipe_state_t;
 
 typedef struct {
@@ -28,7 +28,6 @@ typedef struct {
   char buffer[CONFIG_PIPE_BUFFER_SIZE];
   semaphore_t *read_sem;
   semaphore_t *write_sem;
-  int write_return;
 } pipe_t;
 
 fs_t *pipe_init(void);

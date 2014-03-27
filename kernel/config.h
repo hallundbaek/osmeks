@@ -111,10 +111,16 @@
  */
 #define CONFIG_USERLAND_STACK_SIZE 1
 
+/* Defines the maximum size of a pipe name
+ */
 #define CONFIG_PIPE_MAX_NAME 32
 
+/* Defines how many pipes can be used
+ */
 #define CONFIG_MAX_PIPES 4
 
-#define CONFIG_PIPE_BUFFER_SIZE 5
+/* Defines the size of the internal buffer of the pipes
+ */
+#define CONFIG_PIPE_BUFFER_SIZE 3
 
 #endif /* BUENOS_CONFIG_H */
