@@ -167,6 +167,8 @@ int pipe_remove(fs_t *fs, char *filename)
       pfs->free_pipes ++;
       sleepq_wake_all(pfs->pipes[i].read_sem);
       sleepq_wake_all(pfs->pipes[i].write_sem);
+      semaphore_V(pfs->pipes[i].read_sem);
+      semaphore_V(pfs->pipes[i].write_sem);
       semaphore_V(pfs->lock);
       return VFS_OK;
     }
@@ -177,7 +179,6 @@ int pipe_remove(fs_t *fs, char *filename)
 
 int pipe_read(fs_t *fs, int fileid, void *buffer, int bufsize, int offset)
 {
-//  kprintf("pipe_read\n");
   pipefs_t *pfs;
   pfs = (pipefs_t*) fs->internal;
   interrupt_status_t intr_state;
@@ -190,51 +191,67 @@ int pipe_read(fs_t *fs, int fileid, void *buffer, int bufsize, int offset)
     switch (pfs->pipes[fileid].state) {
       case PIPE_FREE:
         return VFS_ERROR;
-      case PIPE_LISTENING:
-        // Nothing happens, it is added to sleepqueue afterwards.
-        break;
       case PIPE_STREAMING:
         pfs->pipes[fileid].state = PIPE_INUSE;
-        semaphore_V(pfs->lock);
-        while (pfs->pipes[fileid].state == PIPE_INUSE && bufsize > 0) {
+        while ((pfs->pipes[fileid].state == PIPE_INUSE ||
+                pfs->pipes[fileid].state == PIPE_WRITE_OPEN) && bufsize > 0) {
           semaphore_P(pfs->pipes[fileid].read_sem);
+          // Check if pipe has been removed.
+          if (pfs->pipes[fileid].state == PIPE_FREE){
+            continue;
+          }
           new_size = CONFIG_PIPE_BUFFER_SIZE - pfs->pipes[fileid].offset;
+          // Make sure we dont copy more than the read requested.
           if (bytes_remaining < CONFIG_PIPE_BUFFER_SIZE - pfs->pipes[fileid].offset) {
             new_size = bytes_remaining;
           }
-//          kprintf("r newsize = %d, offset = %d\n", new_size, pfs->pipes[fileid].offset);
-          memcopy(new_size,
-                  buffer+offset, pfs->pipes[fileid].buffer +
-                                 pfs->pipes[fileid].offset);
+          // Make sure we dont copy more than there is in the buffer.
+          if (new_size > pfs->pipes[fileid].size) {
+            new_size = pfs->pipes[fileid].size;
+          }
+          memcopy(new_size, buffer+offset, pfs->pipes[fileid].buffer +
+                                           pfs->pipes[fileid].offset);
           bytesread += new_size;
           offset += new_size;
           pfs->pipes[fileid].size -= new_size;
+          // If we are done reading the bufsize == bytesread
           if (bufsize == bytesread) {
-            pfs->pipes[fileid].offset = new_size;
+            pfs->pipes[fileid].offset += new_size;
             pfs->pipes[fileid].state = PIPE_STREAMING;
+            // If the pipe is finished writing as well, we set it to occupied.
             if (pfs->pipes[fileid].size == 0) {
               pfs->pipes[fileid].state = PIPE_OCCUPIED;
               sleepq_wake(pfs->pipes[fileid].write_sem);
+            } else {
+              // else we want another process to be able to read.
+              semaphore_V(pfs->pipes[fileid].read_sem);
+              sleepq_wake(pfs->pipes[fileid].read_sem);
             }
-            semaphore_V(pfs->pipes[fileid].read_sem);
-            sleepq_wake(pfs->pipes[fileid].read_sem);
+            semaphore_V(pfs->lock);
             return bytesread;
           }
-          bytes_remaining -= (CONFIG_PIPE_BUFFER_SIZE - pfs->pipes[fileid].offset);
+          bytes_remaining -= new_size;
+          // If the pipe is finished writing we ask for another write.
+          if (pfs->pipes[fileid].size == 0) {
+            pfs->pipes[fileid].state = PIPE_WRITE_OPEN;
+            sleepq_wake(pfs->pipes[fileid].write_sem);
+            semaphore_V(pfs->lock);
+            continue;
+          }
+          // We open up for another write to the buffer.
           semaphore_V(pfs->pipes[fileid].write_sem);
         }
-        break;
+        semaphore_V(pfs->lock);
+        return VFS_ERROR;
       case PIPE_OCCUPIED:
+        // If it is occupied, it is set to listening, and wakes a writer.
         pfs->pipes[fileid].state = PIPE_LISTENING;
         sleepq_wake(pfs->pipes[fileid].write_sem);
         break;
-      case PIPE_INUSE:
-        // Nothing happens, it is added to sleepqueue afterwards
-        break;
       default:
-        semaphore_V(pfs->lock);
-        return VFS_ERROR;
+        break;
     }
+    // In the case that it is already in use we just put it to sleep.
     intr_state = _interrupt_disable();
     sleepq_add(pfs->pipes[fileid].read_sem);
     _interrupt_set_state(intr_state);
@@ -245,53 +262,79 @@ int pipe_read(fs_t *fs, int fileid, void *buffer, int bufsize, int offset)
 
 int pipe_write(fs_t *fs, int fileid, void *buffer, int datasize, int offset)
 {
-  kprintf("pipe_write\n");
   pipefs_t *pfs;
   pfs = (pipefs_t*) fs->internal;
   interrupt_status_t intr_state;
-  int write_return;
+  int write_return, new_size;
+  new_size = CONFIG_PIPE_BUFFER_SIZE;
+  write_return = 0;
+  // As offset it handled internally we set this to 0.
+  offset = 0;
   while (1) {
+    semaphore_P(pfs->lock);
     switch (pfs->pipes[fileid].state) {
       case PIPE_FREE:
+        semaphore_V(pfs->lock);
         return VFS_ERROR;
       case PIPE_LISTENING:
-        semaphore_P(pfs->lock);
         pfs->pipes[fileid].size = datasize;
         pfs->pipes[fileid].state = PIPE_STREAMING;
-        semaphore_V(pfs->lock);
         sleepq_wake(pfs->pipes[fileid].read_sem);
-        write_return = datasize;
         while ((pfs->pipes[fileid].state == PIPE_STREAMING ||
-                pfs->pipes[fileid].state == PIPE_INUSE)  && datasize > 0) {
-          kprintf("w\n");
-          memcopy(CONFIG_PIPE_BUFFER_SIZE, pfs->pipes[fileid].buffer, buffer + offset);
+                pfs->pipes[fileid].state == PIPE_INUSE)) {
+          // we dont want to copy more than the buffer size, in the case
+          // where there is less than the buffer size going to be written.
+          if (datasize < CONFIG_PIPE_BUFFER_SIZE) {
+            new_size = datasize;
+          }
+          memcopy(new_size, pfs->pipes[fileid].buffer, buffer + offset);
           pfs->pipes[fileid].offset = 0;
-          datasize -= CONFIG_PIPE_BUFFER_SIZE;
-          offset += CONFIG_PIPE_BUFFER_SIZE;
+          datasize -= new_size;
+          offset += new_size;
+          write_return += new_size;
           semaphore_V(pfs->pipes[fileid].read_sem);
+          // if nothing is left to be written it returns the amount written.
+          if (datasize == 0){
+            semaphore_V(pfs->lock);
+            return write_return;
+          }
           semaphore_P(pfs->pipes[fileid].write_sem);
         }
-        pfs->pipes[fileid].state = PIPE_OCCUPIED;
-        if (datasize < 0) {
-          return write_return;
-        } else {
-          return write_return - datasize;
-        }
-        break;
-      case PIPE_STREAMING:
-        // Nothing happens, it is added to sleepqueue afterwards.
-        break;
-      case PIPE_OCCUPIED:
-        break;
-      default:
+        semaphore_V(pfs->lock);
         return VFS_ERROR;
+      case PIPE_OCCUPIED:
+        sleepq_wake(pfs->pipes[fileid].read_sem);
+        break;
+      case PIPE_WRITE_OPEN:
+        // This is for the case when a process is not done reading but
+        // a previous write did not write enough.
+        pfs->pipes[fileid].size = datasize;
+        pfs->pipes[fileid].state = PIPE_INUSE;
+        while (pfs->pipes[fileid].state == PIPE_INUSE) {
+          if (datasize < CONFIG_PIPE_BUFFER_SIZE) {
+            new_size = datasize;
+          }
+          memcopy(new_size, pfs->pipes[fileid].buffer, buffer + offset);
+          pfs->pipes[fileid].offset = 0;
+          datasize -= new_size;
+          offset += new_size;
+          write_return += new_size;
+          semaphore_V(pfs->pipes[fileid].read_sem);
+          if (datasize == 0){
+            semaphore_V(pfs->lock);
+            return write_return;
+          }
+          semaphore_P(pfs->pipes[fileid].write_sem);
+        }
+        semaphore_V(pfs->lock);
+        return VFS_ERROR;
+      default:
+        break;
     }
-    semaphore_P(pfs->lock);
     intr_state = _interrupt_disable();
     sleepq_add(pfs->pipes[fileid].write_sem);
-    _interrupt_set_state(intr_state);
     semaphore_V(pfs->lock);
-    sleepq_wake(pfs->pipes[fileid].read_sem);
+    _interrupt_set_state(intr_state);
     thread_switch();
   }
 }
@@ -322,7 +365,7 @@ int pipe_filecount(fs_t *fs, char *dirname)
 
 int pipe_file(fs_t *fs, char *dirname, int idx, char *buffer)
 {
-  // It does not support directories.
+  // Directories not used in pipe implementation.
   dirname = dirname;
 
   if (idx >= CONFIG_MAX_PIPES){

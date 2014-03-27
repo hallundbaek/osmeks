@@ -16,7 +16,8 @@ typedef enum {
   PIPE_LISTENING,
   PIPE_STREAMING,
   PIPE_OCCUPIED,
-  PIPE_INUSE
+  PIPE_INUSE,
+  PIPE_WRITE_OPEN
 } pipe_state_t;
 
 typedef struct {
@@ -25,7 +26,6 @@ typedef struct {
   int size;
   int offset;
   char buffer[CONFIG_PIPE_BUFFER_SIZE];
-  int write_asid;
   semaphore_t *read_sem;
   semaphore_t *write_sem;
   int write_return;

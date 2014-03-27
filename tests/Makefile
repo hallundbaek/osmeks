@@ -37,7 +37,8 @@
 
 # Add your _userland_ program sources to this variable:
 SOURCES  := halt.c hw.c exec.c calc.c testfile.c filetest.c bigfile.c \
-	testlist.c shell.c deadline.c a.c b.c c.c d.c e.c pipes.c piperead.c
+	testlist.c shell.c deadline.c a.c b.c c.c d.c e.c pipes.c piperead.c \
+	pipereaddelete.c
 
 OBJECTS  := $(patsubst %.c, %.o, $(SOURCES))
 TARGETS  := $(patsubst %.o, %, $(OBJECTS))
